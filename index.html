@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;min-height:100vh;color:#fff;font-family:-apple-system,Segoe UI,Roboto,sans-serif;text-align:center;
+background:radial-gradient(circle at 50% 0,#3b1a6e,#0d0620 70%);padding:16px 16px 28px}
+h1{margin:8px 0 2px;font-size:26px;letter-spacing:.5px}
+.sub{opacity:.6;font-size:14px;margin-bottom:14px}
+.pills{display:flex;gap:8px;justify-content:center;margin-bottom:12px}
+.pill{background:#ffffff18;border-radius:20px;padding:6px 14px;font-size:14px}
+.wheel{position:relative;width:min(340px,88vw);margin:0 auto 16px}
+canvas{width:100%;display:block;filter:drop-shadow(0 0 24px #a855f788)}
+.ptr{position:absolute;left:50%;top:-8px;transform:translateX(-50%);font-size:34px;filter:drop-shadow(0 2px 4px #000)}
+button{border:0;border-radius:16px;font-size:18px;font-weight:700;color:#fff;width:100%;max-width:340px;padding:15px;margin:5px 0;cursor:pointer}
+.main{background:linear-gradient(90deg,#8b5cf6,#d946ef);box-shadow:0 6px 20px #a855f766}
+.main:disabled{opacity:.45}.sec{background:#ffffff1c}
+.odds{max-width:340px;margin:14px auto 0;background:#ffffff10;border-radius:16px;padding:12px 16px;font-size:14px;text-align:left}
+.odds div{display:flex;justify-content:space-between;padding:3px 0}
+.modal{position:fixed;inset:0;background:#000b;display:none;align-items:center;justify-content:center;z-index:5}
+.card{background:#1b0f36;border-radius:24px;padding:28px 24px;width:82%;max-width:320px;animation:pop .4s}
+.big{font-size:72px}.f{position:fixed;top:-30px;font-size:24px;animation:fall 2.5s linear forwards;z-index:6}
+@keyframes pop{from{transform:scale(.6);opacity:0}}@keyframes fall{to{transform:translateY(110vh) rotate(540deg)}}
+</style></head><body>
+<h1>Крути колесо</h1><div class="sub">и выигрывай призы бесплатно</div>
+<div class="pills"><div class="pill" id="sp">🎟 …</div><div class="pill" id="st">🔥 …</div><div class="pill" id="fr">👥 …</div></div>
+<div class="wheel"><div class="ptr">🔻</div><canvas id="c"></canvas></div>
+<button class="main" id="go" disabled>Крутить!</button>
+<button class="sec" id="inv">👥 Пригласить друга (+1 прокрут)</button>
+<div class="odds" id="odds"></div>
+<div class="modal" id="m"><div class="card"><div class="big" id="me"></div><h2 id="mt"></h2><p id="mp"></p>
+<button class="main" onclick="m.style.display='none'">Ок</button></div></div>
+<script>
+const tg=Telegram.WebApp;tg.ready();tg.expand();tg.setHeaderColor('#0d0620');tg.setBackgroundColor('#0d0620');
+const $=id=>document.getElementById(id),TAU=Math.PI*2,COL=['#7c3aed','#db2777','#2563eb','#d97706','#059669','#9333ea','#e11d48','#0891b2'];
+let S,rot=0,busy=false;const cv=$('c'),ctx=cv.getContext('2d'),D=devicePixelRatio||1;
+async function api(p){const r=await fetch('/api/'+p,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({initData:tg.initData})});return r.json().then(j=>({ok:r.ok,j}))}
+function draw(){const W=cv.width=cv.clientWidth*D;cv.height=W;const R=W/2,n=S.prizes.length,a=TAU/n;
+ctx.clearRect(0,0,W,W);ctx.save();ctx.translate(R,R);ctx.rotate(rot);
+S.prizes.forEach((p,i)=>{const s=-Math.PI/2+i*a-a/2;ctx.beginPath();ctx.moveTo(0,0);ctx.arc(0,0,R*.96,s,s+a);
+ctx.fillStyle=p.e=='❌'?'#2a2147':COL[i%COL.length];ctx.fill();ctx.strokeStyle='#ffffff55';ctx.lineWidth=2*D;ctx.stroke();
+ctx.save();ctx.rotate(s+a/2);ctx.font=R*.2+'px serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(p.e,R*.68,0);ctx.restore()});
+ctx.restore();ctx.beginPath();ctx.arc(R,R,R*.14,0,TAU);ctx.fillStyle='#fff';ctx.fill();ctx.font=R*.14+'px serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('🎡',R,R+2)}
+function ui(){$('sp').textContent='🎟 Прокрутов: '+S.spins;$('st').textContent='🔥 Серия: '+S.streak+' дн.';$('fr').textContent='👥 '+S.friends;
+$('go').disabled=busy||S.spins<1;$('go').textContent=S.spins<1?'Прокрутов нет':'Крутить!';
+$('odds').innerHTML='<b>Шансы</b>'+S.odds.map(o=>`<div><span>${o.e} ${o.n}</span><span>${o.p}%</span></div>`).join('')+
+'<div style="opacity:.6;font-size:12px;margin-top:6px">Каждый день +1 прокрут, на 7-й день серии +1 бонус</div>'}
+function confetti(){for(let i=0;i<36;i++){const f=document.createElement('div');f.className='f';f.textContent=['🎉','✨','🎊','⭐'][i%4];
+f.style.left=Math.random()*100+'vw';f.style.animationDelay=Math.random()*.8+'s';document.body.appendChild(f);setTimeout(()=>f.remove(),3500)}}
+$('go').onclick=async()=>{if(busy||S.spins<1)return;busy=true;ui();const {ok,j}=await api('spin');
+if(!ok){busy=false;tg.showAlert('Прокрутов нет');return}
+const n=S.prizes.length,a=TAU/n,off=(Math.random()-.5)*a*.7;
+let need=((-(j.i*a+off)-rot)%TAU+TAU)%TAU;const target=rot+TAU*6+need,start=rot,t0=performance.now(),T=5200;let lastTick=-1;
+(function f(t){const k=Math.min((t-t0)/T,1),e=1-Math.pow(1-k,4);rot=start+(target-start)*e;draw();
+const tick=Math.floor(rot/a);if(tick!=lastTick){lastTick=tick;tg.HapticFeedback.selectionChanged()}
+if(k<1)return requestAnimationFrame(f);
+S.spins=j.spins;busy=false;ui();const p=S.prizes[j.i],win=p.e!='❌';
+tg.HapticFeedback.notificationOccurred(win?'success':'warning');if(win)confetti();
+$('me').textContent=p.e;$('mt').textContent=win?'Поздравляем!':'Не повезло';
+$('mp').textContent=win?'Ты выиграл: '+p.n+'. Админ скоро свяжется с тобой.':'Попробуй ещё раз!';$('m').style.display='flex'})(t0)};
+$('inv').onclick=()=>tg.openTelegramLink('https://t.me/share/url?url='+encodeURIComponent(S.link)+'&text='+encodeURIComponent('Крути колесо и выигрывай призы 🎡'));
+api('state').then(({ok,j})=>{if(!ok){document.body.innerHTML='<h2>Открой через Telegram</h2>';return}S=j;draw();ui()});
+</script></body></html>
